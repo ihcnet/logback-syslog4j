@@ -4,9 +4,11 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.util.LevelToSyslogSeverity;
 import ch.qos.logback.core.AppenderBase;
 import ch.qos.logback.core.Layout;
-import org.productivity.java.syslog4j.SyslogConfigIF;
-import org.productivity.java.syslog4j.SyslogIF;
-import org.productivity.java.syslog4j.SyslogRuntimeException;
+import org.graylog2.syslog4j.SyslogConfigIF;
+import org.graylog2.syslog4j.SyslogIF;
+import org.graylog2.syslog4j.SyslogRuntimeException;
+
+import java.util.Date;
 
 public class Syslog4jAppender<E> extends AppenderBase<E> {
     SyslogIF syslog;
@@ -15,8 +17,13 @@ public class Syslog4jAppender<E> extends AppenderBase<E> {
 
     @Override
     protected void append(E loggingEvent) {
-        syslog.log(getSeverityForEvent(loggingEvent), layout.doLayout(loggingEvent));
-   }
+        Date date = getDateForEvent(loggingEvent);
+        if (date != null) {
+            syslog.log(getSeverityForEvent(loggingEvent), layout.doLayout(loggingEvent), date);
+        } else {
+            syslog.log(getSeverityForEvent(loggingEvent), layout.doLayout(loggingEvent));
+        }
+    }
 
     @Override
     public void start() {
@@ -42,7 +49,7 @@ public class Syslog4jAppender<E> extends AppenderBase<E> {
     public void stop() {
         super.stop();
 
-        synchronized(this) {
+        synchronized (this) {
             if (syslog != null) {
                 syslog.shutdown();
                 syslog = null;
@@ -63,6 +70,15 @@ public class Syslog4jAppender<E> extends AppenderBase<E> {
         } else {
             return SyslogIF.LEVEL_INFO;
         }
+    }
+
+    public Date getDateForEvent(Object eventObject) {
+        if (eventObject instanceof ILoggingEvent) {
+            ILoggingEvent event = (ILoggingEvent) eventObject;
+            long timestamp = event.getTimeStamp();
+            return new Date(timestamp);
+        }
+        return null;
     }
 
     public SyslogConfigIF getSyslogConfig() {
